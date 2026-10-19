@@ -112,6 +112,12 @@ async function show(){
 function authView(reg){
   const msg=h('p',{role:'alert'}),em=h('input',{type:'email',required:'',autocomplete:'username',maxlength:200}),
     pw=h('input',{type:'password',required:'',minlength:reg?12:1,autocomplete:reg?'new-password':'current-password',maxlength:200});
+  const toggle=h('button',{type:'button',class:'password-toggle','aria-label':'Tampilkan password','aria-pressed':'false',onclick:e=>{
+    const show=pw.type==='password';pw.type=show?'text':'password';
+    e.currentTarget.textContent=show?'Sembunyikan':'Lihat';
+    e.currentTarget.setAttribute('aria-label',show?'Sembunyikan password':'Tampilkan password');
+    e.currentTarget.setAttribute('aria-pressed',String(show));
+  }},'Lihat');
   const f=h('form',{onsubmit:safe(async e=>{
     e.preventDefault();msg.textContent='';msg.className='';
     try{
@@ -119,7 +125,7 @@ function authView(reg){
       if(reg){await api('/auth/v1/signup',{m:'POST',b,auth:false});msg.className='ok';msg.textContent='Pendaftaran terkirim. Tunggu persetujuan Penanggung Jawab UKS, lalu masuk.'}
       else{setSession(await api('/auth/v1/token?grant_type=password',{m:'POST',b,auth:false}));await boot()}
     }catch(x){msg.className='err';msg.textContent=/invalid login/i.test(x.message)?'Email atau password salah.':/not confirmed/i.test(x.message)?'Akun belum disetujui Penanggung Jawab UKS.':x.message}})},
-    h('label',{},'Email',em),h('label',{},'Password'+(reg?' (minimal 12 karakter)':''),pw),h('p',{},h('button',{},reg?'Daftar':'Masuk')),msg);
+    h('label',{},'Email',em),h('label',{class:'password-field'},'Password'+(reg?' (minimal 12 karakter)':''),pw,toggle),h('p',{},h('button',{},reg?'Daftar':'Masuk')),msg);
   return h('section',{class:'card auth'},brand(),h('h2',{},reg?'Daftar akun staf':'Masuk'),h('p',{class:'mut'},reg?'Akun baru perlu disetujui Penanggung Jawab UKS.':'Gunakan akun yang sudah disetujui.'),f,
     h('button',{class:'link',onclick:()=>$('main').replaceChildren(authView(!reg))},reg?'Sudah punya akun? Masuk':'Belum punya akun? Daftar'))}
 function render(){

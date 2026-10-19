@@ -21,4 +21,13 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms));
   out.push(tab+': h1='+d.querySelector('h1').textContent+' | baris='+d.querySelectorAll('tbody tr').length+' | badge='+[...d.querySelectorAll('.b')].map(x=>x.textContent).join(',')+' | img/script injeksi='+d.querySelectorAll('#v img,#v script').length);
  }
  console.log(out.join('\n'));console.log('NAV:',[...d.querySelectorAll('aside nav button')].map(x=>x.textContent).join(','));
- console.log('ME:',d.querySelector('.me').textContent);process.exit(0)})().catch(e=>{console.log('ERROR',e.message);process.exit(1)});
+ console.log('ME:',d.querySelector('.me').textContent);
+ d.querySelector('.me button').click();await wait(30);
+ let password=d.querySelector('input[type=password]'),toggle=d.querySelector('.password-toggle');
+ if(!password||!toggle||toggle.textContent!=='Lihat')throw Error('Kontrol lihat password pada login tidak tampil');
+ toggle.click();if(password.type!=='text'||toggle.textContent!=='Sembunyikan')throw Error('Password login tidak bisa ditampilkan');
+ toggle.click();if(password.type!=='password')throw Error('Password login tidak bisa disembunyikan');
+ d.querySelector('button.link').click();password=d.querySelector('input[type=password]');toggle=d.querySelector('.password-toggle');
+ if(!password||password.minLength!==12||!toggle)throw Error('Kontrol password daftar tidak tampil atau batas 12 karakter hilang');
+ toggle.click();if(password.type!=='text')throw Error('Password daftar tidak bisa ditampilkan');
+ console.log('Password: lihat/sembunyikan berfungsi saat masuk dan daftar');process.exit(0)})().catch(e=>{console.log('ERROR',e.message);process.exit(1)});
