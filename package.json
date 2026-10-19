@@ -1,0 +1,10 @@
+{
+ "name": "uks-digital",
+ "private": true,
+ "scripts": {
+  "test": "node tests/smoke.js"
+ },
+ "devDependencies": {
+  "jsdom": "^30.1.2"
+ }
+}
