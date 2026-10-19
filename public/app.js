@@ -110,14 +110,26 @@ async function show(){
   v.replaceChildren(h('p',{class:'mut'},'Memuat…'));
   try{v.replaceChildren(await V[tab]())}catch(e){v.replaceChildren(h('p',{class:'err'},e.message))}}
 function authView(reg){
+  const pwId=reg?'auth-password-signup':'auth-password-login';
   const msg=h('p',{role:'alert'}),em=h('input',{type:'email',required:'',autocomplete:'username',maxlength:200}),
-    pw=h('input',{type:'password',required:'',minlength:reg?12:1,autocomplete:reg?'new-password':'current-password',maxlength:200});
+    pw=h('input',{id:pwId,type:'password',required:'',minlength:reg?12:1,autocomplete:reg?'new-password':'current-password',maxlength:200});
+  const eye=visible=>{
+    const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+    svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('aria-hidden','true');svg.setAttribute('focusable','false');
+    svg.setAttribute('fill','none');svg.setAttribute('stroke','currentColor');svg.setAttribute('stroke-width','1.8');
+    svg.setAttribute('stroke-linecap','round');svg.setAttribute('stroke-linejoin','round');
+    const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d','M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z');svg.append(path);
+    if(visible){const pupil=document.createElementNS('http://www.w3.org/2000/svg','circle');pupil.setAttribute('cx','12');pupil.setAttribute('cy','12');pupil.setAttribute('r','3');svg.append(pupil)}
+    else{const slash=document.createElementNS('http://www.w3.org/2000/svg','path');slash.setAttribute('d','m3 3 18 18');svg.append(slash)}
+    return svg;
+  };
   const toggle=h('button',{type:'button',class:'password-toggle','aria-label':'Tampilkan password','aria-pressed':'false',onclick:e=>{
     const show=pw.type==='password';pw.type=show?'text':'password';
-    e.currentTarget.textContent=show?'Sembunyikan':'Lihat';
+    e.currentTarget.replaceChildren(eye(show));
     e.currentTarget.setAttribute('aria-label',show?'Sembunyikan password':'Tampilkan password');
     e.currentTarget.setAttribute('aria-pressed',String(show));
-  }},'Lihat');
+  }},eye(false));
   const f=h('form',{onsubmit:safe(async e=>{
     e.preventDefault();msg.textContent='';msg.className='';
     try{
@@ -125,7 +137,7 @@ function authView(reg){
       if(reg){await api('/auth/v1/signup',{m:'POST',b,auth:false});msg.className='ok';msg.textContent='Pendaftaran terkirim. Tunggu persetujuan Penanggung Jawab UKS, lalu masuk.'}
       else{setSession(await api('/auth/v1/token?grant_type=password',{m:'POST',b,auth:false}));await boot()}
     }catch(x){msg.className='err';msg.textContent=/invalid login/i.test(x.message)?'Email atau password salah.':/not confirmed/i.test(x.message)?'Akun belum disetujui Penanggung Jawab UKS.':x.message}})},
-    h('label',{},'Email',em),h('label',{class:'password-field'},'Password'+(reg?' (minimal 12 karakter)':''),pw,toggle),h('p',{},h('button',{},reg?'Daftar':'Masuk')),msg);
+    h('label',{},'Email',em),h('label',{class:'password-field',for:pwId},'Password'+(reg?' (minimal 12 karakter)':'')),h('div',{class:'password-control'},pw,toggle),h('p',{},h('button',{},reg?'Daftar':'Masuk')),msg);
   return h('section',{class:'card auth'},brand(),h('h2',{},reg?'Daftar akun staf':'Masuk'),h('p',{class:'mut'},reg?'Akun baru perlu disetujui Penanggung Jawab UKS.':'Gunakan akun yang sudah disetujui.'),f,
     h('button',{class:'link',onclick:()=>$('main').replaceChildren(authView(!reg))},reg?'Sudah punya akun? Masuk':'Belum punya akun? Daftar'))}
 function render(){
