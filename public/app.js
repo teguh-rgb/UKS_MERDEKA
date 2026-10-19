@@ -5,7 +5,7 @@ const RL={admin:'Penanggung Jawab UKS',petugas_uks:'Administrasi UKS',wali_kelas
 const TABS={admin:['kunjungan','obat','alat','akun'],petugas_uks:['kunjungan','obat','alat'],wali_kelas:['kunjungan']};
 const LB={kunjungan:'Kunjungan',obat:'Obat',alat:'Alat',akun:'Akun'};
 const EQ=[['baik','Baik'],['perlu_kalibrasi','Perlu kalibrasi'],['rusak','Rusak']];
-let S=null,ME=null,tab='kunjungan',idle=0;
+let S=null,ME=null,tab='kunjungan',idle=0,AUTH_ACTION=null;
 const $=s=>document.querySelector(s);
 const h=(t,a={},...c)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),a[k]);else e.setAttribute(k,a[k])}e.append(...c.flat().filter(x=>x!=null&&x!==false));return e};
 const safe=f=>async(...a)=>{try{await f(...a)}catch(e){alert(e.message)}};
@@ -139,9 +139,54 @@ function authView(reg){
     }catch(x){msg.className='err';msg.textContent=/invalid login/i.test(x.message)?'Email atau password salah.':/not confirmed/i.test(x.message)?'Akun belum disetujui Penanggung Jawab UKS.':x.message}})},
     h('label',{},'Email',em),h('label',{class:'password-field',for:pwId},'Password'+(reg?' (minimal 12 karakter)':'')),h('div',{class:'password-control'},pw,toggle),h('p',{},h('button',{},reg?'Daftar':'Masuk')),msg);
   return h('section',{class:'card auth'},brand(),h('h2',{},reg?'Daftar akun staf':'Masuk'),h('p',{class:'mut'},reg?'Akun baru perlu disetujui Penanggung Jawab UKS.':'Gunakan akun yang sudah disetujui.'),f,
+    !reg?h('button',{class:'link',onclick:()=>resetView()},'Lupa password?'):null,
     h('button',{class:'link',onclick:()=>$('main').replaceChildren(authView(!reg))},reg?'Sudah punya akun? Masuk':'Belum punya akun? Daftar'))}
+function resetView(){
+  const email=h('input',{type:'email',required:'',autocomplete:'email',maxlength:200}),msg=h('p',{role:'status'});
+  const f=h('form',{onsubmit:safe(async e=>{
+    e.preventDefault();msg.textContent='Mengirim tautan reset…';msg.className='mut';
+    try{
+      const redirect=encodeURIComponent(location.origin+location.pathname);
+      await api('/auth/v1/recover?redirect_to='+redirect,{m:'POST',b:{email:email.value.trim()},auth:false});
+      msg.className='ok';msg.textContent='Jika email terdaftar, tautan untuk membuat password sudah dikirim. Periksa inbox dan folder spam.';
+    }catch(x){msg.className='err';msg.textContent=x.message}
+  })},h('label',{},'Email',email),h('p',{},h('button',{},'Kirim tautan reset')),msg);
+  $('main').replaceChildren(h('section',{class:'card auth'},brand(),h('h2',{},'Atur password'),h('p',{class:'mut'},'Masukkan email akun Anda. Kami akan mengirim tautan aman untuk membuat atau mengatur ulang password.'),f,
+    h('button',{class:'link',onclick:()=>$('main').replaceChildren(authView(false))},'Kembali ke masuk')));
+}
+function passwordSetupView(){
+  const first=h('input',{type:'password',required:'',minlength:12,autocomplete:'new-password',maxlength:200}),again=h('input',{type:'password',required:'',minlength:12,autocomplete:'new-password',maxlength:200}),msg=h('p',{role:'alert'});
+  const f=h('form',{onsubmit:safe(async e=>{
+    e.preventDefault();msg.textContent='';msg.className='';
+    if(first.value!==again.value){msg.className='err';msg.textContent='Konfirmasi password belum sama.';return}
+    try{
+      await api('/auth/v1/user',{m:'PUT',b:{password:first.value}});
+      AUTH_ACTION=null;sessionStorage.removeItem('auth_action');
+      await boot();
+    }catch(x){msg.className='err';msg.textContent=x.message}
+  })},h('label',{},'Password baru (minimal 12 karakter)',first),h('label',{},'Ulangi password',again),h('p',{},h('button',{},'Simpan password')),msg);
+  return h('section',{class:'card auth'},brand(),h('h2',{},'Buat password akun'),h('p',{class:'mut'},'Tautan aman terverifikasi. Buat password minimal 12 karakter untuk akun UKS Digital.'),f);
+}
+async function authActionFromUrl(){
+  const params=new URLSearchParams(location.hash.slice(1)),urlType=params.get('type'),urlAccess=params.get('access_token'),urlRefresh=params.get('refresh_token');
+  if(['invite','recovery'].includes(urlType)&&urlAccess&&urlRefresh){
+    S={access_token:urlAccess,refresh_token:urlRefresh,user:null};
+    sessionStorage.setItem('rt',urlRefresh);sessionStorage.setItem('auth_action',urlType);
+    history.replaceState(null,'',location.pathname+location.search);
+    AUTH_ACTION=urlType;
+  }else AUTH_ACTION=sessionStorage.getItem('auth_action');
+  if(!AUTH_ACTION)return false;
+  try{
+    if(!S&&!(await refresh()))throw Error('Tautan sudah kedaluwarsa. Minta tautan baru.');
+    S.user=await api('/auth/v1/user');render();return true;
+  }catch(e){
+    S=null;AUTH_ACTION=null;sessionStorage.removeItem('rt');sessionStorage.removeItem('auth_action');render();
+    $('#main').append(h('p',{class:'err'},e.message||'Tautan tidak valid. Minta tautan baru.'));return true;
+  }
+}
 function render(){
   const m=$('main');m.replaceChildren();bump();
+  if(AUTH_ACTION)return m.append(passwordSetupView());
   if(!S)return m.append(authView(false));
   if(!ME||!ME.aktif)return m.append(h('section',{class:'card auth'},h('h2',{},ME?'Akun dinonaktifkan':'Menunggu persetujuan'),
     h('p',{},ME?'Hubungi Penanggung Jawab UKS.':'Akun Anda terdaftar tetapi belum diberi peran oleh Penanggung Jawab UKS.'),h('button',{onclick:logout},'Keluar')));
@@ -151,4 +196,4 @@ function render(){
       h('div',{class:'me'},h('strong',{},ME.full_name),h('small',{},RL[ME.role]),h('button',{class:'ghost sm',onclick:logout},'Keluar'))),
     h('section',{class:'pane'},h('h1',{},LB[tab]),h('div',{id:'v'}))));
   show()}
-(async()=>{try{if(await refresh())await boot();else render()}catch(e){render()}})();
+(async()=>{try{if(await authActionFromUrl())return;if(await refresh())await boot();else render()}catch(e){render()}})();
